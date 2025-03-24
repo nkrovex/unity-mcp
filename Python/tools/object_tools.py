@@ -247,4 +247,73 @@ def register_object_tools(mcp: FastMCP):
             })
             return response
         except Exception as e:
-            return {"error": f"Failed to execute context menu item: {str(e)}"} 
+            return {"error": f"Failed to execute context menu item: {str(e)}"}
+
+    @mcp.tool()
+    def modify_object(
+        ctx: Context,
+        name: str,
+        location: Optional[List[float]] = None,
+        rotation: Optional[List[float]] = None,
+        scale: Optional[List[float]] = None,
+        visible: Optional[bool] = None,
+        set_parent: Optional[str] = None,
+        add_component: Optional[str] = None,
+        remove_component: Optional[str] = None,
+        set_property: Optional[Dict[str, Any]] = None
+    ) -> str:
+        """
+        Modify a game object's properties and components.
+        
+        Args:
+            name: Name of the game object to modify.
+            location: Optional [x, y, z] position.
+            rotation: Optional [x, y, z] rotation in degrees.
+            scale: Optional [x, y, z] scale factors.
+            visible: Optional visibility toggle.
+            set_parent: Optional name of the parent object to set.
+            add_component: Optional name of the component type to add (e.g., "Rigidbody", "BoxCollider").
+            remove_component: Optional name of the component type to remove.
+            set_property: Optional dict with keys:
+                - component: Name of the component type
+                - property: Name of the property to set
+                - value: Value to set the property to
+        
+        Returns:
+            str: Success message or error details
+        """
+        try:
+            unity = get_unity_connection()
+            
+            # Check if the object exists
+            found_objects = unity.send_command("FIND_OBJECTS_BY_NAME", {
+                "name": name
+            }).get("objects", [])
+            
+            if not found_objects:
+                return f"Object with name '{name}' not found in the scene."
+            
+            # If set_parent is provided, check if parent object exists
+            if set_parent is not None:
+                parent_objects = unity.send_command("FIND_OBJECTS_BY_NAME", {
+                    "name": set_parent
+                }).get("objects", [])
+                
+                if not parent_objects:
+                    return f"Parent object '{set_parent}' not found in the scene."
+            
+            # Prepare parameters
+            params = {"name": name}
+            if location is not None: params["location"] = location
+            if rotation is not None: params["rotation"] = rotation
+            if scale is not None: params["scale"] = scale
+            if visible is not None: params["visible"] = visible
+            if set_parent is not None: params["set_parent"] = set_parent
+            if add_component is not None: params["add_component"] = add_component
+            if remove_component is not None: params["remove_component"] = remove_component
+            if set_property is not None: params["set_property"] = set_property
+            
+            result = unity.send_command("MODIFY_OBJECT", params)
+            return result.get("message", "Object modified successfully")
+        except Exception as e:
+            return f"Error modifying object: {str(e)}" 

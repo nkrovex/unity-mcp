@@ -193,114 +193,6 @@ def register_scene_tools(mcp: FastMCP):
             return f"Error creating game object: {str(e)}"
 
     @mcp.tool()
-    def modify_object(
-        ctx: Context,
-        name: str,
-        location: Optional[List[float]] = None,
-        rotation: Optional[List[float]] = None,
-        scale: Optional[List[float]] = None,
-        visible: Optional[bool] = None,
-        set_parent: Optional[str] = None,
-        add_component: Optional[str] = None,
-        remove_component: Optional[str] = None,
-        set_property: Optional[Dict[str, Any]] = None
-    ) -> str:
-        """
-        Modify a game object's properties and components.
-        
-        Args:
-            name: Name of the game object to modify.
-            location: Optional [x, y, z] position.
-            rotation: Optional [x, y, z] rotation in degrees.
-            scale: Optional [x, y, z] scale factors.
-            visible: Optional visibility toggle.
-            set_parent: Optional name of the parent object to set.
-            add_component: Optional name of the component type to add (e.g., "Rigidbody", "BoxCollider").
-            remove_component: Optional name of the component type to remove.
-            set_property: Optional dict with keys:
-                - component: Name of the component type
-                - property: Name of the property to set
-                - value: Value to set the property to
-        
-        Returns:
-            str: Success message or error details
-        """
-        try:
-            unity = get_unity_connection()
-            
-            # Check if the object exists
-            found_objects = unity.send_command("FIND_OBJECTS_BY_NAME", {
-                "name": name
-            }).get("objects", [])
-            
-            if not found_objects:
-                return f"Object with name '{name}' not found in the scene."
-            
-            # If set_parent is provided, check if parent object exists
-            if set_parent is not None:
-                parent_objects = unity.send_command("FIND_OBJECTS_BY_NAME", {
-                    "name": set_parent
-                }).get("objects", [])
-                
-                if not parent_objects:
-                    return f"Parent object '{set_parent}' not found in the scene."
-            
-            # If we're adding a component, we could also check if it's already attached
-            if add_component is not None:
-                object_props = unity.send_command("GET_OBJECT_PROPERTIES", {
-                    "name": name
-                })
-                
-                components = object_props.get("components", [])
-                component_exists = any(comp.get("type") == add_component for comp in components)
-                
-                if component_exists:
-                    return f"Component '{add_component}' is already attached to '{name}'."
-            
-            # If we're removing a component, check if it exists
-            if remove_component is not None:
-                object_props = unity.send_command("GET_OBJECT_PROPERTIES", {
-                    "name": name
-                })
-                
-                components = object_props.get("components", [])
-                component_exists = any(comp.get("type") == remove_component for comp in components)
-                
-                if not component_exists:
-                    return f"Component '{remove_component}' is not attached to '{name}'."
-            
-            params = {"name": name}
-            
-            # Add basic transform properties
-            if location is not None:
-                params["location"] = location
-            if rotation is not None:
-                params["rotation"] = rotation
-            if scale is not None:
-                params["scale"] = scale
-            if visible is not None:
-                params["visible"] = visible
-                
-            # Add parent setting
-            if set_parent is not None:
-                params["set_parent"] = set_parent
-                
-            # Add component operations
-            if add_component is not None:
-                params["add_component"] = add_component
-            if remove_component is not None:
-                params["remove_component"] = remove_component
-                
-            # Add property setting
-            if set_property is not None:
-                params["set_property"] = set_property
-                
-            result = unity.send_command("MODIFY_OBJECT", params)
-            return f"Modified game object: {result['name']}"
-        except Exception as e:
-            return f"Error modifying game object: {str(e)}"
-
-    @mcp.tool()
     def delete_object(ctx: Context, name: str, ignore_missing: bool = False) -> str:
         """
         Remove a game object from the scene.
@@ -314,19 +206,9 @@ def register_scene_tools(mcp: FastMCP):
         """
         try:
             unity = get_unity_connection()
-            
-            # Check if the object exists
-            found_objects = unity.send_command("FIND_OBJECTS_BY_NAME", {
-                "name": name
-            }).get("objects", [])
-            
-            if not found_objects:
-                if ignore_missing:
-                    return f"No object named '{name}' found to delete. Ignoring."
-                else:
-                    return f"Error: Object '{name}' not found in the scene."
-            
             result = unity.send_command("DELETE_OBJECT", {"name": name})
-            return f"Deleted game object: {name}"
+            return result.get("message", "Object deleted successfully")
         except Exception as e:
-            return f"Error deleting game object: {str(e)}" 
+            if ignore_missing and "not found" in str(e):
+                return f"Object '{name}' not found (ignored)"
+            return f"Error deleting object: {str(e)}" 
